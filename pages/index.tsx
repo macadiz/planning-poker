@@ -63,10 +63,6 @@ const Home = () => {
     };
   }, [socket]);
 
-  useEffect(() => {
-    console.log(players);
-  }, [players]);
-
   if (!socket) {
     return null;
   }

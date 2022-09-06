@@ -20,7 +20,7 @@ const SocketHandler = (_: any, res: SocketResponse) => {
       });
 
       socket.on("player-leave", (msg) => {
-        console.log("Emmiting player-joined")
+        console.log("Emmiting player-left")
         socket.broadcast.emit("player-left", msg);
       });
     });
