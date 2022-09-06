@@ -1,4 +1,5 @@
 import { Server, ServerOptions } from "Socket.IO";
+import { socketServer } from "../../utils/socket/server";
 
 type SocketResponse = {
   socket: { server: (Partial<ServerOptions> & { io?: unknown }) | undefined };
@@ -14,15 +15,13 @@ const SocketHandler = (_: any, res: SocketResponse) => {
     res.socket.server.io = io;
 
     io.on("connection", (socket) => {
-      socket.on("player-join", (msg) => {
-        console.log("Emmiting player-joined")
-        socket.broadcast.emit("player-joined", msg);
-      });
+      const socketEvents = socketServer(socket);
 
-      socket.on("player-leave", (msg) => {
-        console.log("Emmiting player-left")
-        socket.broadcast.emit("player-left", msg);
-      });
+      socketEvents.onPlayerJoin();
+      socketEvents.onPlayerLeave();
+
+      socketEvents.onUserRequest();
+      socketEvents.onUserResponse();
     });
   }
   res.end();

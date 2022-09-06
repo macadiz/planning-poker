@@ -6,15 +6,24 @@ import { socketClient } from "../utils/socket/client";
 
 const Home = () => {
   const [socket, setSocket] = useState<Socket | null>(null);
-  const [playerId, setPlayerId] = useState<string | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
 
+  const [playerId, setPlayerId] = useState<string | null>(null);
   const [name, setName] = useState("");
 
-  const addPlayer = (name: string, id: string) => {
+  const [player, setPlayer] = useState<Player | null>(null);
+
+  const addPlayer = (player: Player) => {
     setPlayers((currentPlayers) => {
+      const playerExists =
+        currentPlayers.findIndex(
+          (currentPlayer) => currentPlayer.id === player.id
+        ) !== -1;
+      if (playerExists) {
+        return currentPlayers;
+      }
       const newPlayers = [...currentPlayers];
-      newPlayers.push({ name, id });
+      newPlayers.push(player);
       return newPlayers;
     });
   };
@@ -52,8 +61,10 @@ const Home = () => {
       if (!client.socket.connected) {
         client.connect();
       }
+      client.requestUsers();
       client.onPlayerJoin(addPlayer);
       client.onPlayerLeave(removePlayer);
+      client.onUserResponse(addPlayer);
     }
 
     return () => {
@@ -62,6 +73,13 @@ const Home = () => {
       }
     };
   }, [socket]);
+
+  useEffect(() => {
+    if (socket && player) {
+      const client = socketClient(socket);
+      client.onUserRequest(player);
+    }
+  }, [socket, player]);
 
   if (!socket) {
     return null;
@@ -77,7 +95,13 @@ const Home = () => {
     if (playerId) {
       socketClient(socket).onSelfJoin(name, playerId);
 
-      addPlayer(name, playerId);
+      const newPlayer = {
+        name,
+        id: playerId,
+      };
+
+      addPlayer(newPlayer);
+      setPlayer(newPlayer);
     }
   };
 
@@ -86,6 +110,7 @@ const Home = () => {
       socketClient(socket).onSelfLeave(playerId);
 
       removePlayer(playerId);
+      setPlayer(null);
     }
   };
 
