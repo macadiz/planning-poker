@@ -16,9 +16,9 @@ export const socketServer = (socket: Socket) => {
   };
 
   const onUserRequest = () => {
-    socket.on("user-request", () => {
+    socket.on("user-request", (sessionId) => {
         console.log("Emmiting user-request");
-        socket.broadcast.emit("user-requested");
+        socket.broadcast.emit("user-requested", sessionId);
     });
   }
 
@@ -29,10 +29,26 @@ export const socketServer = (socket: Socket) => {
     });
   }
 
+  const onSessionRequest = () => {
+    socket.on("request-session", (sessionData) => {
+      console.log("Emmiting session-requested");
+      socket.broadcast.emit("session-requested", sessionData);
+     });
+  }
+
+  const onSessionResponded = () => {
+    socket.on("session-response", (sessionData) => {
+      console.log("Emmiting session-responded");
+      socket.broadcast.emit("session-responded");
+     });
+  }
+
   return {
     onPlayerJoin,
     onPlayerLeave,
     onUserRequest,
-    onUserResponse
+    onUserResponse,
+    onSessionRequest,
+    onSessionResponded
   };
 };

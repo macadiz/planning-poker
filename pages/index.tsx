@@ -1,143 +1,128 @@
-import React, { useCallback, useEffect, useState } from "react";
-import io, { Socket } from "socket.io-client";
-import { Player } from "../utils/player/type";
-import uuid from "react-uuid";
-import { socketClient } from "../utils/socket/client";
+import { NextPage } from "next";
+import React, { useEffect, useState } from "react";
+import { nanoid } from "nanoid";
+import { useGame } from "../context/GameContext";
+import { useRouter } from "next/router";
 
-const Home = () => {
-  const [socket, setSocket] = useState<Socket | null>(null);
-  const [players, setPlayers] = useState<Player[]>([]);
+const Home: NextPage = () => {
+  const { client, setSession, session, player, setPlayer, addPlayer } =
+    useGame();
 
-  const [playerId, setPlayerId] = useState<string | null>(null);
-  const [name, setName] = useState("");
+  const router = useRouter();
 
-  const [player, setPlayer] = useState<Player | null>(null);
+  const [playerName, setPlayerName] = useState("");
 
-  const addPlayer = (player: Player) => {
-    setPlayers((currentPlayers) => {
-      const playerExists =
-        currentPlayers.findIndex(
-          (currentPlayer) => currentPlayer.id === player.id
-        ) !== -1;
-      if (playerExists) {
-        return currentPlayers;
-      }
-      const newPlayers = [...currentPlayers];
-      newPlayers.push(player);
-      return newPlayers;
-    });
-  };
+  const [sessionName, setSessionName] = useState("");
+  const [sessionCode, setSessionCode] = useState("");
 
-  const removePlayer = (id: string) => {
-    setPlayers((currentPlayers) => {
-      const newPlayers = [...currentPlayers];
-
-      const playerToDelete = newPlayers.find((player) => player.id === id);
-
-      if (playerToDelete) {
-        newPlayers.splice(newPlayers.indexOf(playerToDelete), 1);
-      }
-
-      return newPlayers;
-    });
-  };
-
-  const socketInitializer = useCallback(async () => {
-    await fetch("/api/socket");
-    setSocket(io());
-  }, []);
+  const [showJoin, setShowJoin] = useState(false);
 
   useEffect(() => {
-    setPlayerId(uuid());
-  }, []);
+    if (client && session && player) {
+      client.session(session.id).joinRoom(player);
 
-  useEffect(() => {
-    socketInitializer();
-  }, [socketInitializer]);
+      addPlayer(player);
 
-  useEffect(() => {
-    if (socket) {
-      const client = socketClient(socket);
-      if (!client.socket.connected) {
-        client.connect();
-      }
-      client.requestUsers();
-      client.onPlayerJoin(addPlayer);
-      client.onPlayerLeave(removePlayer);
-      client.onUserResponse(addPlayer);
+      router.replace(`/room/${session.id}`);
     }
-
-    return () => {
-      if (socket) {
-        socket.disconnect();
-      }
-    };
-  }, [socket]);
+  }, [client, session, player]);
 
   useEffect(() => {
-    if (socket && player) {
-      const client = socketClient(socket);
-      client.onUserRequest(player);
-    }
-  }, [socket, player]);
+    if (client && player) {
+      if (!showJoin) {
+        setSession({ id: nanoid(), name: sessionName, isOwner: true });
+      } else {
+        client.onReceiveSession(player.id, setSession);
 
-  if (!socket) {
+        client.requestSession(player, sessionCode);
+      }
+    }
+  }, [client, player, showJoin]);
+
+  if (!client) {
     return null;
   }
 
-  const onNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setName(e.target.value);
-    socket.emit("input-change", e.target.value);
+  const onJoinClick = () => {
+    setShowJoin(true);
+  };
+
+  const onCreateClick = () => {
+    setShowJoin(false);
+  };
+
+  const onRoomNameChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSessionName(event.target.value);
+  };
+
+  const onPlayerNameChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setPlayerName(event.target.value);
+  };
+
+  const onRoomCodeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSessionCode(event.target.value);
+  };
+
+  const onCreateSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const player = {
+      id: nanoid(),
+      name: playerName,
+    };
+
+    setPlayer(player);
   };
 
   const onJoinSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (playerId) {
-      socketClient(socket).onSelfJoin(name, playerId);
 
-      const newPlayer = {
-        name,
-        id: playerId,
-      };
+    const player = {
+      id: nanoid(),
+      name: playerName,
+    };
 
-      addPlayer(newPlayer);
-      setPlayer(newPlayer);
-    }
+    setPlayer(player);
   };
-
-  const onLeave = () => {
-    if (playerId) {
-      socketClient(socket).onSelfLeave(playerId);
-
-      removePlayer(playerId);
-      setPlayer(null);
-    }
-  };
-
-  const hasJoined = !!players.find((player) => player.id === playerId);
 
   return (
     <>
-      <div>
-        Players
-        <ul>
-          {players.map((player) => {
-            return (
-              <li key={player.id}>
-                {player.name} - {player.id}
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-      {!hasJoined ? (
-        <form onSubmit={onJoinSubmit}>
-          Join the game
-          <input placeholder="Name" onChange={onNameChange} value={name} />
-          <button type="submit">Submit</button>
+      {!showJoin ? (
+        <form onSubmit={onCreateSubmit} autoComplete="off">
+          <h1>Create room</h1>
+          <input
+            placeholder="Room name"
+            value={sessionName}
+            onChange={onRoomNameChange}
+          />
+          <input
+            placeholder="Your name"
+            value={playerName}
+            onChange={onPlayerNameChange}
+          />
+          <button type="submit">Create</button>
+          <a href="#" onClick={onJoinClick}>
+            or join a room
+          </a>
         </form>
       ) : (
-        <button onClick={onLeave}>Leave</button>
+        <form onSubmit={onJoinSubmit} autoComplete="off">
+          <h1>Join room</h1>
+          <input
+            placeholder="Room code"
+            value={sessionCode}
+            onChange={onRoomCodeChange}
+          />
+          <input
+            placeholder="Your name"
+            value={playerName}
+            onChange={onPlayerNameChange}
+          />
+          <button type="submit">Join</button>
+          <a href="#" onClick={onCreateClick}>
+            or create a room
+          </a>
+        </form>
       )}
     </>
   );

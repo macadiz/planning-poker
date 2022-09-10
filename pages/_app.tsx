@@ -1,7 +1,12 @@
 import type { AppProps } from "next/app";
+import { GameContextProvider } from "../context/GameContext";
 
 function MyApp({ Component, pageProps }: AppProps) {
-  return <Component {...pageProps} />;
+  return (
+    <GameContextProvider>
+      <Component {...pageProps} />
+    </GameContextProvider>
+  );
 }
 
 export default MyApp;

@@ -22,6 +22,9 @@ const SocketHandler = (_: any, res: SocketResponse) => {
 
       socketEvents.onUserRequest();
       socketEvents.onUserResponse();
+
+      socketEvents.onSessionRequest();
+      socketEvents.onSessionResponded();
     });
   }
   res.end();
